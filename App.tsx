@@ -46,7 +46,7 @@ const App: React.FC = () => {
     setAiAnalyzing(true);
     try {
       // Create a new GoogleGenAI instance right before making an API call
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const prompt = `
         我比對了兩個業務銷售 Excel 檔案。以下是差異摘要：
         - 修改項次: ${result.modified.length}
