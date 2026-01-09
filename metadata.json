@@ -1,0 +1,5 @@
+{
+  "name": "Smart Excel Comparer",
+  "description": "A high-performance Excel comparison tool that tracks sales record changes, highlighting discrepancies in quantity, status, and product details with AI-powered summaries.",
+  "requestFramePermissions": []
+}
