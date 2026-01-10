@@ -162,11 +162,16 @@ export const compareData = (oldData: SaleRow[], newData: SaleRow[]): ComparisonR
       });
 
       if (changes.length > 0) {
+        // 擷取 B 欄（索引 1）並格式化處理
+        const bValue = newRow._raw[1];
+        const colBValue = typeof bValue === 'number' ? formatExcelDate(bValue) : String(bValue || "").trim();
+
         modified.push({
           uniqueKey: idKey,
           id: newRow.id,
           projectName: newRow.projectName,
           customer: newRow.customer,
+          colBValue,
           changes
         });
       }
@@ -194,12 +199,16 @@ export const exportReport = (result: ComparisonResult) => {
       '編號': diff.id,
       '案名': diff.projectName,
       '客戶': diff.customer,
+      'B欄資訊': diff.colBValue,
       '變更明細': diff.changes.map(c => `【${c.column}】 ${c.oldValue} -> ${c.newValue}`).join(' ; ')
     });
   });
 
   // 2. 處理全新增項次
   result.added.forEach(row => {
+    const bValue = row._raw[1];
+    const colBValue = typeof bValue === 'number' ? formatExcelDate(bValue) : String(bValue || "").trim();
+
     const details = [
       row._colMap.date !== -1 ? `[日: ${row._raw[row._colMap.date]}]` : '',
       row._colMap.status !== -1 ? `[狀態: ${row._raw[row._colMap.status]}]` : '',
@@ -212,17 +221,22 @@ export const exportReport = (result: ComparisonResult) => {
       '編號': row.id,
       '案名': row.projectName,
       '客戶': row.customer,
+      'B欄資訊': colBValue,
       '變更明細': `新增資料：${details}`
     });
   });
 
   // 3. 處理已移除項次
   result.removed.forEach(row => {
+    const bValue = row._raw[1];
+    const colBValue = typeof bValue === 'number' ? formatExcelDate(bValue) : String(bValue || "").trim();
+
     finalData.push({
       '狀態類型': '已移除項',
       '編號': row.id,
       '案名': row.projectName,
       '客戶': row.customer,
+      'B欄資訊': colBValue,
       '變更明細': '此項次已從更新檔案中刪除'
     });
   });
@@ -235,6 +249,7 @@ export const exportReport = (result: ComparisonResult) => {
     { wch: 15 }, // 編號
     { wch: 40 }, // 案名
     { wch: 20 }, // 客戶
+    { wch: 15 }, // B欄資訊
     { wch: 80 }  // 變更明細
   ];
 

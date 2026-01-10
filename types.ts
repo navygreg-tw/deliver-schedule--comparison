@@ -1,5 +1,10 @@
 
 export interface SaleRow {
+  _raw: any[];
+  _colMap: any;
+  id: string;
+  projectName: string;
+  customer: string;
   [key: string]: any;
 }
 
@@ -8,6 +13,7 @@ export interface ComparisonDiff {
   id: string;
   projectName: string;
   customer: string;
+  colBValue?: string; // 儲存 Excel B 欄的資料
   changes: Array<{
     column: string;
     oldValue: any;

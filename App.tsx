@@ -1,11 +1,21 @@
 
 import React, { useState } from 'react';
-import { FileUp, ArrowRightLeft, AlertCircle, CheckCircle2, Download, Table, Trash2, PlusCircle, Sparkles, Loader2, BarChart3, Calculator, ShieldCheck, FilePlus2, FileMinus2 } from 'lucide-react';
+import { FileUp, ArrowRightLeft, AlertCircle, CheckCircle2, Download, Table, Trash2, PlusCircle, Sparkles, Loader2, BarChart3, Calculator, ShieldCheck, FilePlus2, FileMinus2, Info } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { parseExcelFile, compareData, exportReport } from './services/excelService';
 import { ComparisonResult, SaleRow } from './types';
 
 type TabType = 'modified' | 'added' | 'removed';
+
+// 小工具函數：處理 B 欄位顯示（如果是日期則格式化）
+const getColBValue = (row: SaleRow) => {
+  const val = row._raw[1];
+  if (typeof val === 'number' && val > 30000 && val < 60000) {
+    const date = new Date((val - 25569) * 86400 * 1000);
+    return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+  }
+  return String(val || "").trim();
+};
 
 const App: React.FC = () => {
   const [oldFile, setOldFile] = useState<File | null>(null);
@@ -37,7 +47,6 @@ const App: React.FC = () => {
       const newData = await parseExcelFile(newFile);
       const diffResult = compareData(oldData, newData);
       setResult(diffResult);
-      // 自動切換到有資料的分頁
       if (diffResult.modified.length > 0) setActiveTab('modified');
       else if (diffResult.added.length > 0) setActiveTab('added');
       else if (diffResult.removed.length > 0) setActiveTab('removed');
@@ -188,7 +197,6 @@ const App: React.FC = () => {
                   <h3 className="font-black text-slate-800 text-xl tracking-tight">差異比對詳細清單</h3>
                 </div>
                 
-                {/* Tab Switcher */}
                 <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
                   <TabButton active={activeTab === 'modified'} onClick={() => setActiveTab('modified')} count={result.modified.length} label="異動內容" icon={<ArrowRightLeft className="w-3.5 h-3.5" />} />
                   <TabButton active={activeTab === 'added'} onClick={() => setActiveTab('added')} count={result.added.length} label="新增項次" icon={<FilePlus2 className="w-3.5 h-3.5" />} />
@@ -216,6 +224,12 @@ const App: React.FC = () => {
                           <td className="px-10 py-10 align-top">
                             <div className="font-black text-slate-800 text-lg">{diff.projectName || '彙總統計列'}</div>
                             <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{diff.customer || '---'}</div>
+                            {diff.colBValue && (
+                              <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg w-fit text-[10px] font-black">
+                                <Info className="w-3 h-3" />
+                                B 欄: {diff.colBValue}
+                              </div>
+                            )}
                           </td>
                           <td className="px-10 py-10 space-y-4">
                             {diff.changes.map((change, j) => (
@@ -244,6 +258,10 @@ const App: React.FC = () => {
                           <td className="px-10 py-10 align-top">
                             <div className="font-black text-slate-800 text-lg">{row.projectName}</div>
                             <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{row.customer}</div>
+                            <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg w-fit text-[10px] font-black">
+                              <Info className="w-3 h-3" />
+                              B 欄: {getColBValue(row)}
+                            </div>
                           </td>
                           <td className="px-10 py-10">
                             <div className="flex flex-wrap gap-2">
@@ -267,6 +285,10 @@ const App: React.FC = () => {
                           <td className="px-10 py-10 align-top">
                             <div className="font-black text-slate-800 text-lg line-through">{row.projectName}</div>
                             <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{row.customer}</div>
+                            <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-slate-50 text-slate-500 border border-slate-100 rounded-lg w-fit text-[10px] font-black">
+                              <Info className="w-3 h-3" />
+                              B 欄: {getColBValue(row)}
+                            </div>
                           </td>
                           <td className="px-10 py-10">
                             <span className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-full border border-rose-100">此項次已從更新檔中移除</span>
