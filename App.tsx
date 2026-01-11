@@ -1,9 +1,17 @@
 
 import React, { useState } from 'react';
-import { FileUp, ArrowRightLeft, AlertCircle, CheckCircle2, Download, Table, Trash2, PlusCircle, Sparkles, Loader2, BarChart3, Calculator, ShieldCheck, FilePlus2, FileMinus2, Info } from 'lucide-react';
+import { FileUp, ArrowRightLeft, AlertCircle, CheckCircle2, Download, Table, Trash2, PlusCircle, Sparkles, BarChart3, Calculator, ShieldCheck, FilePlus2, FileMinus2, Info, Loader2 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { parseExcelFile, compareData, exportReport } from './services/excelService';
 import { ComparisonResult, SaleRow } from './types';
+
+// Replaced custom Spinner with lucide-react Loader2 component
+const Spinner: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+);
 
 type TabType = 'modified' | 'added' | 'removed';
 
@@ -137,8 +145,17 @@ const App: React.FC = () => {
               ${loading ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-200 active:scale-95 overflow-hidden'}
             `}
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <BarChart3 className="w-6 h-6" />}
-            {loading ? '數據深度分析中...' : '開始自動對照'}
+            {loading ? (
+              <>
+                <div key="loader-icon"><Spinner className="w-6 h-6" /></div>
+                <span key="loader-text">數據深度分析中...</span>
+              </>
+            ) : (
+              <>
+                <div key="btn-icon"><BarChart3 className="w-6 h-6" /></div>
+                <span key="btn-text">開始自動對照</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -169,7 +186,7 @@ const App: React.FC = () => {
                 </div>
                 {!result.summary && (
                   <button onClick={runAiSummary} disabled={aiAnalyzing} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center gap-2">
-                    {aiAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {aiAnalyzing ? <Spinner className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
                     解讀數據價值
                   </button>
                 )}
@@ -177,7 +194,7 @@ const App: React.FC = () => {
               <div className="p-10">
                 {aiAnalyzing ? (
                   <div className="flex flex-col items-center py-12 gap-5">
-                    <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
+                    <Spinner className="w-12 h-12 text-indigo-500" />
                     <p className="text-slate-400 font-bold">分析趨勢中...</p>
                   </div>
                 ) : result.summary ? (
@@ -196,7 +213,7 @@ const App: React.FC = () => {
                   <Table className="text-indigo-600 w-7 h-7" />
                   <h3 className="font-black text-slate-800 text-xl tracking-tight">差異比對詳細清單</h3>
                 </div>
-                
+
                 <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1">
                   <TabButton active={activeTab === 'modified'} onClick={() => setActiveTab('modified')} count={result.modified.length} label="異動內容" icon={<ArrowRightLeft className="w-3.5 h-3.5" />} />
                   <TabButton active={activeTab === 'added'} onClick={() => setActiveTab('added')} count={result.added.length} label="新增項次" icon={<FilePlus2 className="w-3.5 h-3.5" />} />
@@ -216,85 +233,85 @@ const App: React.FC = () => {
                   <tbody className="divide-y divide-slate-100">
                     {activeTab === 'modified' && (
                       result.modified.length === 0 ? <EmptyState msg="目前沒有偵測到資料修改。" /> :
-                      result.modified.map((diff, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-10 py-10 align-top">
-                            <span className="bg-slate-900 text-white px-4 py-2 rounded-xl font-mono text-xs font-black inline-block shadow-md">{diff.id}</span>
-                          </td>
-                          <td className="px-10 py-10 align-top">
-                            <div className="font-black text-slate-800 text-lg">{diff.projectName || '彙總統計列'}</div>
-                            <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{diff.customer || '---'}</div>
-                            {diff.colBValue && (
-                              <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg w-fit text-[10px] font-black">
-                                <Info className="w-3 h-3" />
-                                B 欄: {diff.colBValue}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-10 py-10 space-y-4">
-                            {diff.changes.map((change, j) => (
-                              <div key={j} className="flex flex-col lg:flex-row lg:items-center gap-4">
-                                <span className="text-[10px] font-black px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100 w-24 text-center">{change.column}</span>
-                                <div className="flex items-center gap-3 text-sm font-bold">
-                                  <span className="text-slate-300 line-through">{change.oldValue}</span>
-                                  <ArrowRightLeft className="w-4 h-4 text-slate-300" />
-                                  <span className="bg-indigo-600 text-white px-4 py-1.5 rounded-xl shadow-lg shadow-indigo-100">{change.newValue}</span>
+                        result.modified.map((diff) => (
+                          <tr key={diff.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-10 py-10 align-top">
+                              <span className="bg-slate-900 text-white px-4 py-2 rounded-xl font-mono text-xs font-black inline-block shadow-md">{diff.id}</span>
+                            </td>
+                            <td className="px-10 py-10 align-top">
+                              <div className="font-black text-slate-800 text-lg">{diff.projectName || '彙總統計列'}</div>
+                              <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{diff.customer || '---'}</div>
+                              {diff.colBValue && (
+                                <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg w-fit text-[10px] font-black">
+                                  <Info className="w-3 h-3" />
+                                  B 欄: {diff.colBValue}
                                 </div>
-                              </div>
-                            ))}
-                          </td>
-                        </tr>
-                      ))
+                              )}
+                            </td>
+                            <td className="px-10 py-10 space-y-4">
+                              {diff.changes.map((change, j) => (
+                                <div key={j} className="flex flex-col lg:flex-row lg:items-center gap-4">
+                                  <span className="text-[10px] font-black px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100 w-24 text-center">{change.column}</span>
+                                  <div className="flex items-center gap-3 text-sm font-bold">
+                                    <span className="text-slate-300 line-through">{change.oldValue}</span>
+                                    <ArrowRightLeft className="w-4 h-4 text-slate-300" />
+                                    <span className="bg-indigo-600 text-white px-4 py-1.5 rounded-xl shadow-lg shadow-indigo-100">{change.newValue}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </td>
+                          </tr>
+                        ))
                     )}
 
                     {activeTab === 'added' && (
                       result.added.length === 0 ? <EmptyState msg="沒有任何新增的項次。" /> :
-                      result.added.map((row, i) => (
-                        <tr key={i} className="hover:bg-emerald-50/30 transition-colors group">
-                          <td className="px-10 py-10 align-top">
-                            <span className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-mono text-xs font-black inline-block shadow-md">NEW</span>
-                            <div className="mt-2 text-xs font-bold text-slate-400">{row.id}</div>
-                          </td>
-                          <td className="px-10 py-10 align-top">
-                            <div className="font-black text-slate-800 text-lg">{row.projectName}</div>
-                            <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{row.customer}</div>
-                            <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg w-fit text-[10px] font-black">
-                              <Info className="w-3 h-3" />
-                              B 欄: {getColBValue(row)}
-                            </div>
-                          </td>
-                          <td className="px-10 py-10">
-                            <div className="flex flex-wrap gap-2">
-                              <Badge label="日" value={row._raw[row._colMap.date]} />
-                              <Badge label="狀態" value={row._raw[row._colMap.status]} />
-                              <Badge label="產品" value={row._raw[row._colMap.product]} />
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                        result.added.map((row) => (
+                          <tr key={row.id} className="hover:bg-emerald-50/30 transition-colors group">
+                            <td className="px-10 py-10 align-top">
+                              <span className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-mono text-xs font-black inline-block shadow-md">NEW</span>
+                              <div className="mt-2 text-xs font-bold text-slate-400">{row.id}</div>
+                            </td>
+                            <td className="px-10 py-10 align-top">
+                              <div className="font-black text-slate-800 text-lg">{row.projectName}</div>
+                              <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{row.customer}</div>
+                              <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg w-fit text-[10px] font-black">
+                                <Info className="w-3 h-3" />
+                                B 欄: {getColBValue(row)}
+                              </div>
+                            </td>
+                            <td className="px-10 py-10">
+                              <div className="flex flex-wrap gap-2">
+                                <Badge label="日" value={row._raw[row._colMap.date]} />
+                                <Badge label="狀態" value={row._raw[row._colMap.status]} />
+                                <Badge label="產品" value={row._raw[row._colMap.product]} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))
                     )}
 
                     {activeTab === 'removed' && (
                       result.removed.length === 0 ? <EmptyState msg="沒有任何移除的項次。" /> :
-                      result.removed.map((row, i) => (
-                        <tr key={i} className="hover:bg-rose-50/30 transition-colors group grayscale opacity-60">
-                          <td className="px-10 py-10 align-top">
-                            <span className="bg-rose-600 text-white px-4 py-2 rounded-xl font-mono text-xs font-black inline-block shadow-md">DEL</span>
-                            <div className="mt-2 text-xs font-bold text-slate-400">{row.id}</div>
-                          </td>
-                          <td className="px-10 py-10 align-top">
-                            <div className="font-black text-slate-800 text-lg line-through">{row.projectName}</div>
-                            <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{row.customer}</div>
-                            <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-slate-50 text-slate-500 border border-slate-100 rounded-lg w-fit text-[10px] font-black">
-                              <Info className="w-3 h-3" />
-                              B 欄: {getColBValue(row)}
-                            </div>
-                          </td>
-                          <td className="px-10 py-10">
-                            <span className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-full border border-rose-100">此項次已從更新檔中移除</span>
-                          </td>
-                        </tr>
-                      ))
+                        result.removed.map((row) => (
+                          <tr key={row.id} className="hover:bg-rose-50/30 transition-colors group grayscale opacity-60">
+                            <td className="px-10 py-10 align-top">
+                              <span className="bg-rose-600 text-white px-4 py-2 rounded-xl font-mono text-xs font-black inline-block shadow-md">DEL</span>
+                              <div className="mt-2 text-xs font-bold text-slate-400">{row.id}</div>
+                            </td>
+                            <td className="px-10 py-10 align-top">
+                              <div className="font-black text-slate-800 text-lg line-through">{row.projectName}</div>
+                              <div className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{row.customer}</div>
+                              <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-slate-50 text-slate-500 border border-slate-100 rounded-lg w-fit text-[10px] font-black">
+                                <Info className="w-3 h-3" />
+                                B 欄: {getColBValue(row)}
+                              </div>
+                            </td>
+                            <td className="px-10 py-10">
+                              <span className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-full border border-rose-100">此項次已從更新檔中移除</span>
+                            </td>
+                          </tr>
+                        ))
                     )}
                   </tbody>
                 </table>

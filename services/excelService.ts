@@ -1,5 +1,6 @@
-
 import * as XLSX from 'xlsx';
+
+import { saveAs } from 'file-saver';
 import { SaleRow, ComparisonDiff, ComparisonResult } from '../types';
 
 /**
@@ -50,11 +51,17 @@ export const parseExcelFile = async (file: File): Promise<SaleRow[]> => {
         const workbook = XLSX.read(fileBuffer, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        
+
         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as any[][];
-        
+
+        if (rows.length === 0) {
+          reject(new Error("Excel 檔案內容為空，請確認檔案是否包含資料。"));
+          return;
+        }
+
         let headerIdx = -1;
-        for (let i = 0; i < Math.min(rows.length, 100); i++) {
+        // Increase search range to 500 rows to handle headers deeper in the file
+        for (let i = 0; i < Math.min(rows.length, 500); i++) {
           if (rows[i].some(cell => extremeNormalize(cell).includes("編號"))) {
             headerIdx = i;
             break;
@@ -62,12 +69,14 @@ export const parseExcelFile = async (file: File): Promise<SaleRow[]> => {
         }
 
         if (headerIdx === -1) {
-          reject(new Error("找不到 '編號' 標題列，請確認 Excel 格式。"));
+          const preview = rows.slice(0, 5).map(r => r.join(", ")).join("\n");
+          console.warn("Header search failed. First 5 rows preview:\n", preview);
+          reject(new Error("找不到 '編號' 標題列。請確認 Excel 包含「編號」欄位，且位於前 500 列內。"));
           return;
         }
 
         const headers = rows[headerIdx].map(h => String(h));
-        
+
         const colMap = {
           id: findColIndex(headers, "編號"),
           date: findColIndex(headers, "日"),
@@ -83,10 +92,10 @@ export const parseExcelFile = async (file: File): Promise<SaleRow[]> => {
         for (let i = headerIdx + 1; i < rows.length; i++) {
           const row = rows[i];
           const idValue = row[colMap.id];
-          
+
           // 如果編號是日期序號，進行格式化
           const formattedId = typeof idValue === 'number' ? formatExcelDate(idValue) : String(idValue || "").trim();
-          
+
           if (!formattedId) continue;
 
           // 預先處理「日」欄位的格式
@@ -146,7 +155,7 @@ export const compareData = (oldData: SaleRow[], newData: SaleRow[]): ComparisonR
       compareFields.forEach(field => {
         const oldIdx = oldRow._colMap[field.mapKey];
         const newIdx = newRow._colMap[field.mapKey];
-        
+
         if (oldIdx !== -1 && newIdx !== -1) {
           const valOld = extremeNormalize(oldRow._raw[oldIdx]);
           const valNew = extremeNormalize(newRow._raw[newIdx]);
@@ -241,19 +250,45 @@ export const exportReport = (result: ComparisonResult) => {
     });
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(finalData);
-  
-  // 設定欄寬
-  worksheet['!cols'] = [
-    { wch: 12 }, // 狀態類型
-    { wch: 15 }, // 編號
-    { wch: 40 }, // 案名
-    { wch: 20 }, // 客戶
-    { wch: 15 }, // B欄資訊
-    { wch: 80 }  // 變更明細
-  ];
+  try {
+    const worksheet = XLSX.utils.json_to_sheet(finalData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "比對結果");
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, '業務異動報告');
-  XLSX.writeFile(workbook, `業務比對完整報告_${new Date().toISOString().split('T')[0]}.xlsx`);
+    // Auto-width
+    const wscols = [
+      { wch: 10 }, // 狀態類型
+      { wch: 15 }, // 編號
+      { wch: 30 }, // 案名
+      { wch: 20 }, // 客戶
+      { wch: 15 }, // B欄資訊
+      { wch: 50 }, // 變更明細
+    ];
+    worksheet['!cols'] = wscols;
+
+    // Generate base64 data URL for download
+    const filename = `Comparison_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+
+    // Create data URL with proper MIME type
+    const dataURL = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${excelBuffer}`;
+
+    // Trigger download using anchor element
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup after a short delay
+    setTimeout(() => {
+      document.body.removeChild(link);
+    }, 100);
+
+    console.log("Export successful:", filename);
+  } catch (error) {
+    console.error("Export failed:", error);
+    alert("匯出失敗，請查看控制台錯誤訊息: " + error);
+  }
 };
